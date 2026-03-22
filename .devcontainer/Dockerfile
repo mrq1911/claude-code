@@ -25,7 +25,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   jq \
   nano \
   vim \
+  openssh-server \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Configure sshd
+RUN mkdir -p /var/run/sshd && \
+  sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+  sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+  sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+  echo 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/npm-global/bin"' >> /etc/environment && \
+  echo 'SHELL="/bin/zsh"' >> /etc/environment && \
+  echo 'EDITOR="nano"' >> /etc/environment && \
+  echo 'VISUAL="nano"' >> /etc/environment
 
 # Ensure default node user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \
@@ -55,6 +66,18 @@ RUN ARCH=$(dpkg --print-architecture) && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
 # Set up non-root user
+# Set up SSH for node user
+RUN mkdir -p /home/node/.ssh && \
+  chmod 700 /home/node/.ssh && \
+  curl -sL https://github.com/mrq1911.keys >> /home/node/.ssh/authorized_keys && \
+  curl -sL https://github.com/betacaroten.keys >> /home/node/.ssh/authorized_keys && \
+  chmod 600 /home/node/.ssh/authorized_keys && \
+  chown -R node:node /home/node/.ssh && \
+  chsh -s /bin/zsh node
+
+
+EXPOSE 22
+
 USER node
 
 # Install global packages
@@ -81,11 +104,15 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 # Install Claude
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
+# Install OpenCode
+RUN curl -fsSL https://opencode.ai/install | bash
+
 
 # Copy and set up firewall script
 COPY init-firewall.sh /usr/local/bin/
 USER root
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
-  echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
+  echo "node ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
-USER node
+
+CMD /usr/local/bin/init-firewall.sh || echo "WARNING: Firewall setup failed"; /usr/sbin/sshd -D
