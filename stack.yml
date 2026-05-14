@@ -21,9 +21,7 @@ services:
         protocol: tcp
         mode: host
     volumes:
-      - alice-claude:/home/claude/.claude
-      - alice-history:/commandhistory
-      - alice-workspace:/workspace
+      - alice:/home/claude
 
   bob:
     <<: *claude-base
@@ -36,17 +34,11 @@ services:
         protocol: tcp
         mode: host
     volumes:
-      - bob-claude:/home/claude/.claude
-      - bob-history:/commandhistory
-      - bob-workspace:/workspace
+      - bob:/home/claude
 
 volumes:
-  alice-claude:
-  alice-history:
-  alice-workspace:
-  bob-claude:
-  bob-history:
-  bob-workspace:
+  alice:
+  bob:
 
 networks:
   default:
