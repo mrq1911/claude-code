@@ -65,13 +65,11 @@ RUN ARCH=$(dpkg --print-architecture) && \
   sudo dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
-# Set up non-root user
-# Set up SSH for node user
+# Set up SSH dir for node user. Authorized keys, git identity, and the
+# initial-context repo are all configured at runtime by entrypoint.sh from
+# env vars.
 RUN mkdir -p /home/node/.ssh && \
   chmod 700 /home/node/.ssh && \
-  curl -sL https://github.com/mrq1911.keys >> /home/node/.ssh/authorized_keys && \
-  curl -sL https://github.com/betacaroten.keys >> /home/node/.ssh/authorized_keys && \
-  chmod 600 /home/node/.ssh/authorized_keys && \
   chown -R node:node /home/node/.ssh && \
   chsh -s /bin/zsh node
 
@@ -108,11 +106,11 @@ RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 RUN curl -fsSL https://opencode.ai/install | bash
 
 
-# Copy and set up firewall script
-COPY init-firewall.sh /usr/local/bin/
+# Copy and set up firewall + entrypoint scripts
+COPY init-firewall.sh entrypoint.sh /usr/local/bin/
 USER root
-RUN chmod +x /usr/local/bin/init-firewall.sh && \
+RUN chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/entrypoint.sh && \
   echo "node ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
 
-CMD /usr/local/bin/init-firewall.sh || echo "WARNING: Firewall setup failed"; /usr/sbin/sshd -D
+CMD ["/usr/local/bin/entrypoint.sh"]
