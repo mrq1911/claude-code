@@ -1,0 +1,60 @@
+version: "3.8"
+
+x-claude-base: &claude-base
+  image: lumir/claude:latest
+  networks:
+    - default
+  entrypoint:
+    - sh
+    - -c
+    - |
+      echo "$$AUTHORIZED_KEY" > /home/node/.ssh/authorized_keys
+      chmod 600 /home/node/.ssh/authorized_keys
+      exec sudo /usr/sbin/sshd -D
+  deploy:
+    replicas: 1
+    restart_policy:
+      condition: any
+
+services:
+  alice:
+    <<: *claude-base
+    hostname: alice
+    environment:
+      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...replace-with-alice-key... alice"
+    ports:
+      - target: 22
+        published: 2201
+        protocol: tcp
+        mode: host
+    volumes:
+      - alice-claude:/home/node/.claude
+      - alice-history:/commandhistory
+      - alice-workspace:/workspace
+
+  bob:
+    <<: *claude-base
+    hostname: bob
+    environment:
+      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...replace-with-bob-key... bob"
+    ports:
+      - target: 22
+        published: 2202
+        protocol: tcp
+        mode: host
+    volumes:
+      - bob-claude:/home/node/.claude
+      - bob-history:/commandhistory
+      - bob-workspace:/workspace
+
+volumes:
+  alice-claude:
+  alice-history:
+  alice-workspace:
+  bob-claude:
+  bob-history:
+  bob-workspace:
+
+networks:
+  default:
+    driver: overlay
