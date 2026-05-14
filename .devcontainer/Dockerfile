@@ -5,6 +5,12 @@ ENV TZ="$TZ"
 
 ARG CLAUDE_CODE_VERSION=latest
 
+# Rename the base image's `node` account to `claude` (moves /home/node ->
+# /home/claude and renames the primary group). Done early so every later
+# RUN/USER directive can refer to `claude`.
+RUN usermod -l claude -d /home/claude -m node && \
+  groupmod -n claude node
+
 # Install basic development tools and iptables/ipset
 RUN apt-get update && apt-get install -y --no-install-recommends \
   less \
@@ -38,11 +44,11 @@ RUN mkdir -p /var/run/sshd && \
   echo 'EDITOR="nano"' >> /etc/environment && \
   echo 'VISUAL="nano"' >> /etc/environment
 
-# Ensure default node user has access to /usr/local/share
+# Ensure default claude user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \
-  chown -R node:node /usr/local/share
+  chown -R claude:claude /usr/local/share
 
-ARG USERNAME=node
+ARG USERNAME=claude
 
 # Persist bash history.
 RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
@@ -54,8 +60,8 @@ RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhisto
 ENV DEVCONTAINER=true
 
 # Create workspace and config directories and set permissions
-RUN mkdir -p /workspace /home/node/.claude && \
-  chown -R node:node /workspace /home/node/.claude
+RUN mkdir -p /workspace /home/claude/.claude && \
+  chown -R claude:claude /workspace /home/claude/.claude
 
 WORKDIR /workspace
 
@@ -65,18 +71,17 @@ RUN ARCH=$(dpkg --print-architecture) && \
   sudo dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
-# Set up SSH dir for node user. Authorized keys, git identity, and the
-# initial-context repo are all configured at runtime by entrypoint.sh from
-# env vars.
-RUN mkdir -p /home/node/.ssh && \
-  chmod 700 /home/node/.ssh && \
-  chown -R node:node /home/node/.ssh && \
-  chsh -s /bin/zsh node
+# Set up SSH dir for claude user. Authorized keys and the initial-context
+# repo are configured at runtime by entrypoint.sh from env vars.
+RUN mkdir -p /home/claude/.ssh && \
+  chmod 700 /home/claude/.ssh && \
+  chown -R claude:claude /home/claude/.ssh && \
+  chsh -s /bin/zsh claude
 
 
 EXPOSE 22
 
-USER node
+USER claude
 
 # Install global packages
 ENV NPM_CONFIG_PREFIX=/usr/local/share/npm-global
@@ -110,7 +115,7 @@ RUN curl -fsSL https://opencode.ai/install | bash
 COPY init-firewall.sh entrypoint.sh /usr/local/bin/
 USER root
 RUN chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/entrypoint.sh && \
-  echo "node ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/node-firewall && \
-  chmod 0440 /etc/sudoers.d/node-firewall
+  echo "claude ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/claude-firewall && \
+  chmod 0440 /etc/sudoers.d/claude-firewall
 
 CMD ["/usr/local/bin/entrypoint.sh"]
