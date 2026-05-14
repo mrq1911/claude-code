@@ -4,13 +4,6 @@ x-claude-base: &claude-base
   image: lumir/claude:latest
   networks:
     - default
-  entrypoint:
-    - sh
-    - -c
-    - |
-      echo "$$AUTHORIZED_KEY" > /home/node/.ssh/authorized_keys
-      chmod 600 /home/node/.ssh/authorized_keys
-      exec sudo /usr/sbin/sshd -D
   deploy:
     replicas: 1
     restart_policy:
@@ -21,14 +14,14 @@ services:
     <<: *claude-base
     hostname: alice
     environment:
-      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...replace-with-alice-key... alice"
+      SSH_PUBLIC_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...replace-with-alice-key... alice"
     ports:
       - target: 22
         published: 2201
         protocol: tcp
         mode: host
     volumes:
-      - alice-claude:/home/node/.claude
+      - alice-claude:/home/claude/.claude
       - alice-history:/commandhistory
       - alice-workspace:/workspace
 
@@ -36,14 +29,14 @@ services:
     <<: *claude-base
     hostname: bob
     environment:
-      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...replace-with-bob-key... bob"
+      SSH_PUBLIC_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...replace-with-bob-key... bob"
     ports:
       - target: 22
         published: 2202
         protocol: tcp
         mode: host
     volumes:
-      - bob-claude:/home/node/.claude
+      - bob-claude:/home/claude/.claude
       - bob-history:/commandhistory
       - bob-workspace:/workspace
 
